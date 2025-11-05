@@ -20,7 +20,7 @@ const upload = multer({
     files: 10 // Max 10 files at once
   },
   fileFilter: (req, file, cb) => {
-    // Accept images and PDFs
+    // Accept only images
     const allowedMimeTypes = [
       'image/jpeg',
       'image/jpg',
@@ -33,18 +33,17 @@ const upload = multer({
       'image/heic',
       'image/heif',
       'image/heic-sequence',
-      'image/heif-sequence',
-      'application/pdf'
+      'image/heif-sequence'
     ];
 
-    const allowedExtensions = /jpeg|jpg|png|gif|webp|bmp|tiff|tif|svg|heic|heif|pdf/i;
+    const allowedExtensions = /jpeg|jpg|png|gif|webp|bmp|tiff|tif|svg|heic|heif/i;
     const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedMimeTypes.includes(file.mimetype.toLowerCase()) || file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf';
+    const mimetype = allowedMimeTypes.includes(file.mimetype.toLowerCase()) || file.mimetype.startsWith('image/');
 
     if (mimetype || extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Only image and PDF files are allowed'));
+      cb(new Error('Only image files are allowed. For PDFs, please convert to images first.'));
     }
   }
 });
@@ -199,33 +198,9 @@ async function processImageBuffer(buffer, originalExt, originalName) {
   let finalFilename = originalName;
   let mimeType = 'image/jpeg';
 
-  // If it's a PDF, extract text and store as JSON
+  // PDFs not supported on Vercel
   if (ext === '.pdf') {
-    console.log(`Detected PDF file, extracting text...`);
-    try {
-      const pdfParse = require('pdf-parse');
-      const data = await pdfParse(buffer);
-      const extractedText = data.text;
-
-      console.log(`Extracted ${extractedText.length} characters from PDF`);
-
-      // Store as JSON with text content
-      const textData = JSON.stringify({
-        text: extractedText,
-        source: 'pdf',
-        pages: data.numpages
-      });
-
-      processedBuffer = Buffer.from(textData, 'utf8');
-      finalFilename = originalName.replace(/\.pdf$/i, '.json');
-      mimeType = 'application/json';
-
-      console.log(`PDF converted to text JSON`);
-      return { buffer: processedBuffer, filename: finalFilename, mimeType, isPdf: true };
-    } catch (error) {
-      console.error('PDF extraction error:', error);
-      throw new Error('Failed to extract text from PDF');
-    }
+    throw new Error('PDF upload not supported. Please convert your PDF to images (PNG/JPEG) first.');
   }
 
   // If it's HEIC/HEIF, convert to JPEG
@@ -248,16 +223,16 @@ async function processImageBuffer(buffer, originalExt, originalName) {
       const image = sharp(processedBuffer);
       const metadata = await image.metadata();
 
-      // Aggressively resize to ensure small payload (Vercel 4.5MB limit)
-      // Max 1000px and 75% quality keeps images under 200KB typically
+      // Extremely aggressive resize for Vercel limits
+      // Max 600px and 60% quality keeps images under 50KB
       console.log(`Optimizing image: ${finalFilename} (${metadata.width}x${metadata.height})`);
 
       processedBuffer = await image
-        .resize(1000, 1000, {
+        .resize(600, 600, {
           fit: 'inside',
           withoutEnlargement: true
         })
-        .jpeg({ quality: 75 })
+        .jpeg({ quality: 60 })
         .toBuffer();
 
       // Update filename to .jpg since we converted to JPEG

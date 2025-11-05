@@ -49,27 +49,6 @@ router.post('/generate', authMiddleware, async (req, res) => {
     let ocrText = '';
 
     for (const img of images) {
-      // Check if this is a JSON file (text from PDF or OCR)
-      if (img.path.startsWith('data:application/json')) {
-        try {
-          // Extract JSON from data URL
-          const base64Match = img.path.match(/^data:application\/json;base64,(.+)$/);
-          if (base64Match) {
-            const jsonString = Buffer.from(base64Match[1], 'base64').toString('utf8');
-            const textData = JSON.parse(jsonString);
-            if ((textData.source === 'pdf' || textData.source === 'ocr') && textData.text) {
-              ocrText += textData.text + '\n\n';
-              console.log(`Using text from ${img.filename} (${textData.text.length} characters)`);
-              continue; // Skip to next image
-            }
-          }
-        } catch (err) {
-          console.error(`Error reading text file: ${err.message}`);
-          missingFiles.push(img.original_name || img.filename);
-          continue;
-        }
-      }
-
       try {
         let imageBuffer;
 
