@@ -15,7 +15,10 @@ const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit to accommodate various formats
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit per file
+    files: 10 // Max 10 files at once
+  },
   fileFilter: (req, file, cb) => {
     // Accept a wide variety of image formats (no PDFs on Vercel)
     const allowedMimeTypes = [
@@ -215,15 +218,16 @@ async function processImageBuffer(buffer, originalExt, originalName) {
       const image = sharp(processedBuffer);
       const metadata = await image.metadata();
 
-      // Always resize to max 2000px and optimize
+      // Aggressively resize to ensure small payload (Vercel 4.5MB limit)
+      // Max 1000px and 75% quality keeps images under 200KB typically
       console.log(`Optimizing image: ${finalFilename} (${metadata.width}x${metadata.height})`);
 
       processedBuffer = await image
-        .resize(2000, 2000, {
+        .resize(1000, 1000, {
           fit: 'inside',
           withoutEnlargement: true
         })
-        .jpeg({ quality: 85 })
+        .jpeg({ quality: 75 })
         .toBuffer();
 
       // Update filename to .jpg since we converted to JPEG
