@@ -7,7 +7,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyDemoKe
 async function generateQuestionsFromImages(images, ocrText, questionTypes, counts) {
   try {
     // Use Gemini 1.5 Flash (free tier, supports vision)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
 
     // Build question requests
     const questionRequests = [];
