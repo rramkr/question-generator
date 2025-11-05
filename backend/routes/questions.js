@@ -49,7 +49,7 @@ router.post('/generate', authMiddleware, async (req, res) => {
     let ocrText = '';
 
     for (const img of images) {
-      // Check if this is a JSON file (OCR text from PDF)
+      // Check if this is a JSON file (OCR text from PDF) - backward compatibility
       if (img.path.endsWith('.json')) {
         try {
           const textData = JSON.parse(fs.readFileSync(img.path, 'utf8'));
@@ -65,17 +65,27 @@ router.post('/generate', authMiddleware, async (req, res) => {
         }
       }
 
-      // Check if image file exists
-      if (!fs.existsSync(img.path)) {
-        missingFiles.push(img.original_name || img.filename);
-        console.error(`Image file not found: ${img.path}`);
-        continue;
-      }
-
       try {
+        let imageBuffer;
+
+        // Check if this is a URL (Vercel Blob) or local file
+        if (img.path.startsWith('https://') || img.path.startsWith('http://')) {
+          // Fetch image from URL
+          console.log(`Fetching image from URL: ${img.path}`);
+          const response = await axios.get(img.path, { responseType: 'arraybuffer' });
+          imageBuffer = Buffer.from(response.data);
+        } else if (fs.existsSync(img.path)) {
+          // Read from local filesystem (backward compatibility)
+          imageBuffer = fs.readFileSync(img.path);
+        } else {
+          missingFiles.push(img.original_name || img.filename);
+          console.error(`Image not found: ${img.path}`);
+          continue;
+        }
+
         // Resize and compress image for AI service to reduce payload
         // Max 800px width, 85% quality JPEG
-        const optimizedBuffer = await sharp(img.path)
+        const optimizedBuffer = await sharp(imageBuffer)
           .resize(800, 800, {
             fit: 'inside',
             withoutEnlargement: true
@@ -87,7 +97,7 @@ router.post('/generate', authMiddleware, async (req, res) => {
         imagesBase64.push(base64Image);
         console.log(`Optimized image ${img.filename} for AI service (reduced to ${Math.round(base64Image.length / 1024)}KB)`);
       } catch (error) {
-        console.error(`Error reading image ${img.path}:`, error);
+        console.error(`Error processing image ${img.path}:`, error);
         missingFiles.push(img.original_name || img.filename);
       }
     }

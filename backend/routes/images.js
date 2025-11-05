@@ -7,29 +7,18 @@ const convert = require('heic-convert');
 const tesseract = require('node-tesseract-ocr');
 const { run, get, all } = require('../database');
 const authMiddleware = require('../middleware/auth');
+const { put, del } = require('@vercel/blob');
 
 const router = express.Router();
 
-// Configure multer for file upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer for file upload (use memory storage for Vercel)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit to accommodate various formats
   fileFilter: (req, file, cb) => {
-    // Accept a wide variety of image formats and PDFs
+    // Accept a wide variety of image formats (no PDFs on Vercel)
     const allowedMimeTypes = [
       'image/jpeg',
       'image/jpg',
@@ -42,36 +31,33 @@ const upload = multer({
       'image/heic',
       'image/heif',
       'image/heic-sequence',
-      'image/heif-sequence',
-      'application/pdf'
+      'image/heif-sequence'
     ];
 
-    const allowedExtensions = /jpeg|jpg|png|gif|webp|bmp|tiff|tif|svg|heic|heif|pdf/i;
+    const allowedExtensions = /jpeg|jpg|png|gif|webp|bmp|tiff|tif|svg|heic|heif/i;
     const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedMimeTypes.includes(file.mimetype.toLowerCase()) || file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf';
+    const mimetype = allowedMimeTypes.includes(file.mimetype.toLowerCase()) || file.mimetype.startsWith('image/');
 
     if (mimetype || extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Only image and PDF files are allowed'));
+      cb(new Error('Only image files are allowed'));
     }
   }
 });
 
-// Helper function to convert HEIC to JPEG
-async function convertHeicToJpeg(inputPath, outputPath) {
+// Helper function to convert HEIC to JPEG (works with buffers)
+async function convertHeicToJpeg(inputBuffer) {
   try {
-    const inputBuffer = await fs.promises.readFile(inputPath);
     const outputBuffer = await convert({
       buffer: inputBuffer,
       format: 'JPEG',
       quality: 0.95
     });
-    await fs.promises.writeFile(outputPath, outputBuffer);
-    return true;
+    return outputBuffer;
   } catch (error) {
     console.error('HEIC conversion error:', error);
-    return false;
+    return null;
   }
 }
 
@@ -201,95 +187,59 @@ async function convertPdfToImages(pdfPath) {
 }
 
 
-// Helper function to process and normalize images
-async function processImage(filePath, originalExt) {
+// Helper function to process and normalize images (works with buffers)
+async function processImageBuffer(buffer, originalExt, originalName) {
   const ext = originalExt.toLowerCase();
-  console.log(`processImage called with: ${filePath}, ext: ${ext}`);
+  console.log(`processImageBuffer called for: ${originalName}, ext: ${ext}`);
 
-  // If it's a PDF, convert to images
-  if (ext === '.pdf') {
-    // Check if running on Vercel (no system binaries available)
-    if (process.env.VERCEL) {
-      throw new Error('PDF upload is not supported on this deployment. Please use image files (JPG, PNG, HEIC) instead. PDF support requires system dependencies not available on Vercel free tier.');
-    }
-
-    console.log(`Detected PDF file, converting pages to images...`);
-    const imagePaths = await convertPdfToImages(filePath);
-
-    if (imagePaths.length > 0) {
-      // Delete original PDF
-      try {
-        await fs.promises.unlink(filePath);
-        console.log(`Deleted original PDF file: ${filePath}`);
-      } catch (err) {
-        console.error('Error deleting PDF file:', err);
-      }
-      // Return the JSON file path
-      return { path: imagePaths[0], filename: path.basename(imagePaths[0]), converted: true };
-    }
-    console.log(`PDF conversion failed`);
-    return { path: filePath, filename: path.basename(filePath), converted: false };
-  }
+  let processedBuffer = buffer;
+  let finalFilename = originalName;
+  let mimeType = 'image/jpeg';
 
   // If it's HEIC/HEIF, convert to JPEG
   if (ext === '.heic' || ext === '.heif') {
     console.log(`Detected HEIC/HEIF file, converting...`);
-    // Replace the extension regardless of case
-    const jpegPath = filePath.replace(/\.(heic|heif)$/i, '.jpg');
-    console.log(`Target JPEG path: ${jpegPath}`);
+    const convertedBuffer = await convertHeicToJpeg(buffer);
 
-    const converted = await convertHeicToJpeg(filePath, jpegPath);
-    console.log(`Conversion result: ${converted}`);
-
-    if (converted) {
-      // Delete original HEIC file
-      try {
-        await fs.promises.unlink(filePath);
-        console.log(`Deleted original HEIC file: ${filePath}`);
-      } catch (err) {
-        console.error('Error deleting HEIC file:', err);
-      }
-      return { path: jpegPath, filename: path.basename(jpegPath), converted: true };
+    if (convertedBuffer) {
+      processedBuffer = convertedBuffer;
+      finalFilename = originalName.replace(/\.(heic|heif)$/i, '.jpg');
+      console.log(`HEIC converted successfully`);
+    } else {
+      console.log(`HEIC conversion failed, keeping original`);
     }
-    console.log(`Conversion failed, keeping original file`);
-    return { path: filePath, filename: path.basename(filePath), converted: false };
   }
 
-  // For other formats, optionally normalize with sharp (except SVG)
+  // For images (except SVG), optimize with sharp
   if (ext !== '.svg') {
     try {
-      // Always optimize images to reduce file size for Claude API
-      const image = sharp(filePath);
+      const image = sharp(processedBuffer);
       const metadata = await image.metadata();
 
-      // Resize to max 2000px width and compress to reduce API payload
-      // This is crucial for sending multiple images to Claude API
-      const shouldOptimize = metadata.width > 2000 || metadata.height > 2000;
+      // Always resize to max 2000px and optimize
+      console.log(`Optimizing image: ${finalFilename} (${metadata.width}x${metadata.height})`);
 
-      if (shouldOptimize) {
-        console.log(`Optimizing image: ${filePath} (${metadata.width}x${metadata.height})`);
-        const optimizedPath = filePath.replace(ext, '_optimized' + ext);
+      processedBuffer = await image
+        .resize(2000, 2000, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .jpeg({ quality: 85 })
+        .toBuffer();
 
-        await image
-          .resize(2000, 2000, {
-            fit: 'inside',
-            withoutEnlargement: false
-          })
-          .jpeg({ quality: 85 }) // Convert to JPEG with good quality
-          .toFile(optimizedPath);
-
-        // Replace original with optimized
-        await fs.promises.unlink(filePath);
-        await fs.promises.rename(optimizedPath, filePath);
-        console.log(`Image optimized successfully`);
+      // Update filename to .jpg since we converted to JPEG
+      if (!finalFilename.endsWith('.jpg') && !finalFilename.endsWith('.jpeg')) {
+        finalFilename = finalFilename.replace(/\.[^.]+$/, '.jpg');
       }
+
+      console.log(`Image optimized successfully`);
     } catch (error) {
       console.error('Image optimization error:', error);
-      // Continue with original file if optimization fails
+      // Continue with original buffer if optimization fails
     }
   }
 
-  return { path: filePath, filename: path.basename(filePath), converted: false };
+  return { buffer: processedBuffer, filename: finalFilename, mimeType };
 }
 
 // Upload images
@@ -302,24 +252,37 @@ router.post('/upload', authMiddleware, upload.array('images', 20), async (req, r
     const uploadedImages = [];
 
     for (const file of req.files) {
-      console.log(`Processing file: ${file.originalname}, path: ${file.path}`);
+      console.log(`Processing file: ${file.originalname}, size: ${file.size} bytes`);
 
-      // Process the image (convert HEIC if needed, optimize if needed)
-      const processedImage = await processImage(file.path, path.extname(file.originalname));
+      // Process the image (convert HEIC if needed, optimize)
+      const processedImage = await processImageBuffer(
+        file.buffer,
+        path.extname(file.originalname),
+        file.originalname
+      );
 
-      console.log(`Processed result - filename: ${processedImage.filename}, path: ${processedImage.path}, converted: ${processedImage.converted}`);
+      console.log(`Processed result - filename: ${processedImage.filename}`);
 
-      // Save to database
+      // Upload to Vercel Blob
+      const uniqueFilename = `${Date.now()}-${Math.round(Math.random() * 1E9)}-${processedImage.filename}`;
+      const blob = await put(uniqueFilename, processedImage.buffer, {
+        access: 'public',
+        contentType: processedImage.mimeType
+      });
+
+      console.log(`Uploaded to Vercel Blob: ${blob.url}`);
+
+      // Save to database with blob URL
       const result = await run(
         'INSERT INTO images (user_id, filename, original_name, path) VALUES (?, ?, ?, ?)',
-        [req.userId, processedImage.filename, file.originalname, processedImage.path]
+        [req.userId, processedImage.filename, file.originalname, blob.url]
       );
 
       uploadedImages.push({
         id: result.lastID,
         filename: processedImage.filename,
         originalName: file.originalname,
-        converted: processedImage.converted
+        url: blob.url
       });
     }
 
@@ -359,8 +322,17 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    // Delete file
-    if (fs.existsSync(image.path)) {
+    // Delete from Vercel Blob if it's a blob URL
+    if (image.path && image.path.startsWith('https://')) {
+      try {
+        await del(image.path);
+        console.log(`Deleted from Vercel Blob: ${image.path}`);
+      } catch (blobError) {
+        console.error('Error deleting from Vercel Blob:', blobError);
+        // Continue with database deletion even if blob deletion fails
+      }
+    } else if (image.path && fs.existsSync(image.path)) {
+      // For backward compatibility with local files
       fs.unlinkSync(image.path);
     }
 
