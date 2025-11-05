@@ -6,8 +6,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyDemoKe
 
 async function generateQuestionsFromImages(images, ocrText, questionTypes, counts) {
   try {
-    // Use Gemini 1.5 Flash (free tier, supports vision)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    // Use Gemini 2.5 Flash (free tier, supports vision)
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     // Build question requests
     const questionRequests = [];
@@ -207,7 +207,7 @@ Return ONLY the JSON array, no additional text.`;
 
     return {
       questions: filteredQuestions,
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       source: ocrText ? 'ocr-text' : 'vision'
     };
 
