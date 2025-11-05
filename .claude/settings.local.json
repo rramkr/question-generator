@@ -31,7 +31,8 @@
       "Bash(pkill:*)",
       "Bash(ollama list:*)",
       "Bash(node -p:*)",
-      "Bash(brew install:*)"
+      "Bash(brew install:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
