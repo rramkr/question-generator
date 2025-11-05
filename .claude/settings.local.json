@@ -32,7 +32,14 @@
       "Bash(ollama list:*)",
       "Bash(node -p:*)",
       "Bash(brew install:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git remote add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(ssh-keyscan:*)",
+      "Bash(~/.ssh/known_hosts)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
