@@ -25,12 +25,6 @@ function ImageUpload({ token, onUploadSuccess }) {
     setError('');
     setUploadMessage('');
 
-    // Check if any PDF files
-    const hasPDF = selectedFiles.some(f => f.name.toLowerCase().endsWith('.pdf'));
-    if (hasPDF) {
-      setUploadMessage('Processing PDF with OCR... This may take 30-60 seconds.');
-    }
-
     const formData = new FormData();
     selectedFiles.forEach(file => {
       formData.append('images', file);
@@ -74,14 +68,14 @@ function ImageUpload({ token, onUploadSuccess }) {
           id="file-input"
           type="file"
           multiple
-          accept="image/*,.heic,.heif,.pdf,application/pdf"
+          accept="image/*,.heic,.heif"
           onChange={handleFileSelect}
           className="file-input"
         />
         <label htmlFor="file-input" className="file-label">
           <div className="upload-icon">📁</div>
-          <p>Click to select images or PDFs</p>
-          <span className="file-hint">Supports: JPEG, PNG, GIF, WebP, BMP, TIFF, HEIC, SVG, PDF (up to 50MB each)</span>
+          <p>Click to select images</p>
+          <span className="file-hint">Supports: JPEG, PNG, GIF, WebP, BMP, TIFF, HEIC, SVG (up to 50MB each)</span>
         </label>
       </div>
 
