@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run install-all:*)",
+      "Bash(npm install:*)",
+      "Bash(test:*)",
+      "Bash(npm run dev:*)",
+      "Bash(lsof:*)",
+      "Bash(kill:*)",
+      "Bash(xargs kill:*)",
+      "Bash(curl:*)",
+      "Bash(BROWSER=none npm start)",
+      "Bash(sqlite3:*)",
+      "Bash(node -e:*)",
+      "Bash(sh)",
+      "Bash(npm uninstall:*)",
+      "Bash(unzip:*)",
+      "Bash(/dev/null)",
+      "Bash(~/bin/ollama:*)",
+      "Bash(python3 -m venv:*)",
+      "Bash(source venv/bin/activate)",
+      "Bash(pip install:*)",
+      "Bash(/tmp/Ollama.app/Contents/MacOS/ollama serve:*)",
+      "Bash(/tmp/Ollama.app/Contents/MacOS/ollama pull:*)",
+      "Bash(/Applications/Ollama.app/Contents/MacOS/ollama pull:*)",
+      "Bash(python app.py:*)",
+      "Bash(/Applications/Ollama.app/Contents/MacOS/ollama list:*)",
+      "Bash(cat:*)",
+      "Bash(tee:*)",
+      "Bash(pgrep:*)",
+      "Bash(pkill:*)",
+      "Bash(ollama list:*)",
+      "Bash(node -p:*)",
+      "Bash(brew install:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
