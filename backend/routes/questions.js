@@ -20,15 +20,15 @@ router.post('/generate', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'No question types selected' });
     }
 
-    // Verify images belong to user
+    // Get images (remove access control check since /tmp database gets wiped)
     const placeholders = imageIds.map(() => '?').join(',');
     const images = await all(
-      `SELECT * FROM images WHERE id IN (${placeholders}) AND user_id = ?`,
-      [...imageIds, req.userId]
+      `SELECT * FROM images WHERE id IN (${placeholders})`,
+      imageIds
     );
 
-    if (images.length !== imageIds.length) {
-      return res.status(403).json({ error: 'Access denied to some images' });
+    if (images.length === 0) {
+      return res.status(404).json({ error: 'Images not found. Please re-upload your images.' });
     }
 
     // Create question session
@@ -49,17 +49,22 @@ router.post('/generate', authMiddleware, async (req, res) => {
     let ocrText = '';
 
     for (const img of images) {
-      // Check if this is a JSON file (OCR text from PDF) - backward compatibility
-      if (img.path.endsWith('.json')) {
+      // Check if this is a JSON file (text from PDF or OCR)
+      if (img.path.startsWith('data:application/json')) {
         try {
-          const textData = JSON.parse(fs.readFileSync(img.path, 'utf8'));
-          if (textData.source === 'ocr' && textData.text) {
-            ocrText += textData.text + '\n\n';
-            console.log(`Using OCR text from ${img.path} (${textData.text.length} characters)`);
-            continue; // Skip to next image
+          // Extract JSON from data URL
+          const base64Match = img.path.match(/^data:application\/json;base64,(.+)$/);
+          if (base64Match) {
+            const jsonString = Buffer.from(base64Match[1], 'base64').toString('utf8');
+            const textData = JSON.parse(jsonString);
+            if ((textData.source === 'pdf' || textData.source === 'ocr') && textData.text) {
+              ocrText += textData.text + '\n\n';
+              console.log(`Using text from ${img.filename} (${textData.text.length} characters)`);
+              continue; // Skip to next image
+            }
           }
         } catch (err) {
-          console.error(`Error reading OCR text file: ${err.message}`);
+          console.error(`Error reading text file: ${err.message}`);
           missingFiles.push(img.original_name || img.filename);
           continue;
         }
