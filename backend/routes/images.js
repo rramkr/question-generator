@@ -7,11 +7,10 @@ const convert = require('heic-convert');
 const tesseract = require('node-tesseract-ocr');
 const { run, get, all } = require('../database');
 const authMiddleware = require('../middleware/auth');
-const { put, del } = require('@vercel/blob');
 
 const router = express.Router();
 
-// Configure multer for file upload (use memory storage for Vercel)
+// Configure multer for file upload (use memory storage)
 const storage = multer.memoryStorage();
 
 const upload = multer({
@@ -263,26 +262,22 @@ router.post('/upload', authMiddleware, upload.array('images', 20), async (req, r
 
       console.log(`Processed result - filename: ${processedImage.filename}`);
 
-      // Upload to Vercel Blob
-      const uniqueFilename = `${Date.now()}-${Math.round(Math.random() * 1E9)}-${processedImage.filename}`;
-      const blob = await put(uniqueFilename, processedImage.buffer, {
-        access: 'public',
-        contentType: processedImage.mimeType
-      });
+      // Store image as base64 data URL for simplicity (works on all platforms)
+      const base64Data = processedImage.buffer.toString('base64');
+      const dataUrl = `data:${processedImage.mimeType};base64,${base64Data}`;
 
-      console.log(`Uploaded to Vercel Blob: ${blob.url}`);
+      console.log(`Converted to base64 (${Math.round(base64Data.length / 1024)}KB)`);
 
-      // Save to database with blob URL
+      // Save to database with data URL
       const result = await run(
         'INSERT INTO images (user_id, filename, original_name, path) VALUES (?, ?, ?, ?)',
-        [req.userId, processedImage.filename, file.originalname, blob.url]
+        [req.userId, processedImage.filename, file.originalname, dataUrl]
       );
 
       uploadedImages.push({
         id: result.lastID,
         filename: processedImage.filename,
-        originalName: file.originalname,
-        url: blob.url
+        originalName: file.originalname
       });
     }
 
@@ -322,21 +317,13 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    // Delete from Vercel Blob if it's a blob URL
-    if (image.path && image.path.startsWith('https://')) {
-      try {
-        await del(image.path);
-        console.log(`Deleted from Vercel Blob: ${image.path}`);
-      } catch (blobError) {
-        console.error('Error deleting from Vercel Blob:', blobError);
-        // Continue with database deletion even if blob deletion fails
-      }
-    } else if (image.path && fs.existsSync(image.path)) {
-      // For backward compatibility with local files
+    // Delete local file if it exists (backward compatibility)
+    if (image.path && !image.path.startsWith('data:') && !image.path.startsWith('http') && fs.existsSync(image.path)) {
       fs.unlinkSync(image.path);
+      console.log(`Deleted local file: ${image.path}`);
     }
 
-    // Delete from database
+    // Delete from database (data URL is stored in path column, no external cleanup needed)
     await run('DELETE FROM images WHERE id = ?', [req.params.id]);
 
     res.json({ message: 'Image deleted successfully' });

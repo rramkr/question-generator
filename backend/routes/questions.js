@@ -68,9 +68,20 @@ router.post('/generate', authMiddleware, async (req, res) => {
       try {
         let imageBuffer;
 
-        // Check if this is a URL (Vercel Blob) or local file
-        if (img.path.startsWith('https://') || img.path.startsWith('http://')) {
-          // Fetch image from URL
+        // Check if this is a data URL, external URL, or local file
+        if (img.path.startsWith('data:')) {
+          // Extract base64 data from data URL
+          console.log(`Extracting base64 from data URL for ${img.filename}`);
+          const base64Match = img.path.match(/^data:image\/\w+;base64,(.+)$/);
+          if (base64Match) {
+            imageBuffer = Buffer.from(base64Match[1], 'base64');
+          } else {
+            console.error(`Invalid data URL format: ${img.path.substring(0, 50)}...`);
+            missingFiles.push(img.original_name || img.filename);
+            continue;
+          }
+        } else if (img.path.startsWith('https://') || img.path.startsWith('http://')) {
+          // Fetch image from external URL
           console.log(`Fetching image from URL: ${img.path}`);
           const response = await axios.get(img.path, { responseType: 'arraybuffer' });
           imageBuffer = Buffer.from(response.data);

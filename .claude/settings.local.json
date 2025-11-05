@@ -40,7 +40,9 @@
       "Bash(ssh-keyscan:*)",
       "Bash(~/.ssh/known_hosts)",
       "Bash(npm run build:*)",
-      "Bash(vercel:*)"
+      "Bash(vercel:*)",
+      "Bash(npx vercel blob:*)",
+      "Bash(printf:*)"
     ],
     "deny": [],
     "ask": []
