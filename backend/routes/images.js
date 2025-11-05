@@ -208,6 +208,11 @@ async function processImage(filePath, originalExt) {
 
   // If it's a PDF, convert to images
   if (ext === '.pdf') {
+    // Check if running on Vercel (no system binaries available)
+    if (process.env.VERCEL) {
+      throw new Error('PDF upload is not supported on this deployment. Please use image files (JPG, PNG, HEIC) instead. PDF support requires system dependencies not available on Vercel free tier.');
+    }
+
     console.log(`Detected PDF file, converting pages to images...`);
     const imagePaths = await convertPdfToImages(filePath);
 
