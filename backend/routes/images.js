@@ -20,7 +20,7 @@ const upload = multer({
     files: 10 // Max 10 files at once
   },
   fileFilter: (req, file, cb) => {
-    // Accept only images
+    // Accept images and PDFs
     const allowedMimeTypes = [
       'image/jpeg',
       'image/jpg',
@@ -33,17 +33,18 @@ const upload = multer({
       'image/heic',
       'image/heif',
       'image/heic-sequence',
-      'image/heif-sequence'
+      'image/heif-sequence',
+      'application/pdf'
     ];
 
-    const allowedExtensions = /jpeg|jpg|png|gif|webp|bmp|tiff|tif|svg|heic|heif/i;
+    const allowedExtensions = /jpeg|jpg|png|gif|webp|bmp|tiff|tif|svg|heic|heif|pdf/i;
     const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedMimeTypes.includes(file.mimetype.toLowerCase()) || file.mimetype.startsWith('image/');
 
     if (mimetype || extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed. For PDFs, please convert to images first.'));
+      cb(new Error('Only image and PDF files are allowed.'));
     }
   }
 });
@@ -60,6 +61,54 @@ async function convertHeicToJpeg(inputBuffer) {
   } catch (error) {
     console.error('HEIC conversion error:', error);
     return null;
+  }
+}
+
+// Helper function to extract text from PDF buffer
+async function extractTextFromPdf(pdfBuffer) {
+  try {
+    console.log('Extracting text from PDF buffer');
+
+    // Dynamically import pdfjs-dist
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+
+    // Load PDF to extract text only (no rendering)
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(pdfBuffer),
+      useSystemFonts: true
+    });
+
+    const pdfDocument = await loadingTask.promise;
+    const numPages = pdfDocument.numPages;
+    console.log(`PDF has ${numPages} pages`);
+
+    // Extract text from all pages (limit to 20 pages)
+    let allText = '';
+    const maxPages = Math.min(numPages, 20);
+
+    for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+      const page = await pdfDocument.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      allText += `--- Page ${pageNum} ---\n${pageText}\n\n`;
+    }
+
+    if (!allText || allText.trim().length === 0) {
+      console.log('No text found in PDF - this may be an image-based/scanned PDF');
+      throw new Error('No text could be extracted from the PDF. This may be a scanned PDF. Please convert it to images or use OCR.');
+    }
+
+    console.log(`Extracted ${allText.length} characters from PDF (${maxPages} pages)`);
+    console.log('Sample text:', allText.substring(0, 200));
+
+    return {
+      text: allText,
+      pages: maxPages,
+      totalPages: numPages
+    };
+  } catch (error) {
+    console.error('PDF text extraction error:', error);
+    throw error;
   }
 }
 
@@ -198,9 +247,26 @@ async function processImageBuffer(buffer, originalExt, originalName) {
   let finalFilename = originalName;
   let mimeType = 'image/jpeg';
 
-  // PDFs not supported on Vercel
+  // Handle PDFs by extracting text
   if (ext === '.pdf') {
-    throw new Error('PDF upload not supported. Please convert your PDF to images (PNG/JPEG) first.');
+    console.log('Processing PDF file');
+    const pdfData = await extractTextFromPdf(buffer);
+
+    // Store the extracted text as a JSON buffer
+    const textData = JSON.stringify({
+      text: pdfData.text,
+      source: 'pdf',
+      pages: pdfData.pages,
+      totalPages: pdfData.totalPages,
+      originalName: originalName
+    });
+
+    processedBuffer = Buffer.from(textData, 'utf-8');
+    mimeType = 'application/json';
+    finalFilename = originalName.replace(/\.pdf$/i, '_text.json');
+
+    console.log(`PDF processed: extracted ${pdfData.text.length} characters from ${pdfData.pages} pages`);
+    return { buffer: processedBuffer, filename: finalFilename, mimeType };
   }
 
   // If it's HEIC/HEIF, convert to JPEG

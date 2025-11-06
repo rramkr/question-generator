@@ -68,14 +68,14 @@ function ImageUpload({ token, onUploadSuccess }) {
           id="file-input"
           type="file"
           multiple
-          accept="image/*,.heic,.heif"
+          accept="image/*,.heic,.heif,.pdf,application/pdf"
           onChange={handleFileSelect}
           className="file-input"
         />
         <label htmlFor="file-input" className="file-label">
           <div className="upload-icon">📁</div>
           <p>Click to select images</p>
-          <span className="file-hint">Supports: JPEG, PNG, GIF, WebP, BMP, TIFF, HEIC, SVG (up to 10MB each). For PDFs, please convert to images first.</span>
+          <span className="file-hint">Supports: JPEG, PNG, GIF, WebP, BMP, TIFF, HEIC, SVG, PDF (up to 10MB each)</span>
         </label>
       </div>
 
