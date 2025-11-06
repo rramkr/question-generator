@@ -5,12 +5,13 @@ An AI-powered application that generates various types of educational questions 
 ## Features
 
 - **User Authentication**: Secure email/password registration and login
-- **Multi-Format Image Upload**: Upload multiple textbook images in various formats
-  - Supports: JPEG, PNG, GIF, WebP, BMP, TIFF, HEIC/HEIF, SVG
+- **Multi-Format Upload**: Upload multiple files in various formats
+  - **Images**: JPEG, PNG, GIF, WebP, BMP, TIFF, HEIC/HEIF, SVG
+  - **PDFs**: Upload PDF documents with automatic text extraction (up to 20 pages)
   - Automatic HEIC to JPEG conversion for Apple device photos
   - Automatic image optimization for large files
-  - Up to 50MB per image
-- **AI-Powered Analysis**: Uses Claude AI to analyze and understand textbook content
+  - Up to 10MB per file
+- **AI-Powered Analysis**: Uses Google Gemini AI to analyze and understand content from images and PDFs
 - **Multiple Question Types**:
   - True/False questions
   - Fill in the Blanks
@@ -27,17 +28,17 @@ An AI-powered application that generates various types of educational questions 
 - **Frontend**: React 18
 - **Backend**: Node.js + Express
 - **Database**: SQLite (sqlite3)
-- **AI**: Ollama + LLaVA (Free, Open-Source, Runs Locally)
-- **AI Service**: Python Flask + Ollama API
+- **AI**: Google Gemini 2.5 Flash (Free API, Vision-capable)
 - **Authentication**: JWT + bcrypt
 - **Image Processing**: Sharp (optimization) + heic-convert (HEIC support)
+- **PDF Processing**: pdfjs-dist (text extraction)
+- **Deployment**: Vercel (unified frontend + backend)
 
 ## Prerequisites
 
 - Node.js (v16 or higher)
 - npm or yarn
-- Python 3.9+ (for AI service)
-- Ollama ([Download here](https://ollama.com))
+- Google Gemini API key (free at https://ai.google.dev/)
 
 ## Installation
 
@@ -57,74 +58,51 @@ An AI-powered application that generates various types of educational questions 
    Create a `.env` file in the `backend` directory:
    ```bash
    cd backend
-   cp .env.example .env
+   touch .env
    ```
 
-   Edit `backend/.env` (default values should work for local development):
+   Edit `backend/.env`:
    ```
    PORT=5001
    JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-   AI_SERVICE_URL=http://localhost:5002
+   GEMINI_API_KEY=your-gemini-api-key-here
    ```
 
-4. **Set up AI Service** (Ollama + LLaVA):
-
-   a. **Install Ollama**:
-   - Download from [ollama.com](https://ollama.com)
-   - Open the downloaded file and install
-   - Ollama will run in your menu bar
-
-   b. **Download LLaVA model**:
-   ```bash
-   ollama pull llava
-   ```
-   This downloads a 4.7GB vision model (one-time download)
-
-   c. **Start Ollama** (if not already running):
-   ```bash
-   ollama serve
-   ```
-
-   d. **Install AI Service dependencies**:
-   ```bash
-   cd ai-service
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   cd ..
-   ```
+   **Get your free Gemini API key**:
+   - Go to https://ai.google.dev/
+   - Click "Get API Key in Google AI Studio"
+   - Create a new API key
+   - Copy and paste it into your `.env` file
 
 ## Running the Application
 
-You need to run 3 services: Backend, Frontend, and AI Service.
+You need to run 2 services: Backend and Frontend.
 
-### Option 1: Run with Three Terminals
+### Run with Two Terminals
 
-**Terminal 1 - AI Service** (must be started first):
-```bash
-cd ai-service
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-python app.py
-```
-AI service will start on `http://localhost:5002`
-
-**Terminal 2 - Backend**:
+**Terminal 1 - Backend**:
 ```bash
 cd backend
 npm run dev
 ```
 Backend will start on `http://localhost:5001`
 
-**Terminal 3 - Frontend**:
+**Terminal 2 - Frontend**:
 ```bash
 cd frontend
 npm start
 ```
 Frontend will start on `http://localhost:3000`
 
-### Option 2: Use Screen or Tmux (Advanced)
+### Quick Start (Single Command)
 
-If you're comfortable with terminal multiplexers, you can run all services in one terminal window.
+From the project root, you can also use:
+```bash
+# Install all dependencies
+npm run install-all
+
+# Start backend and frontend (you'll need two terminals)
+```
 
 ## Usage
 
@@ -136,10 +114,11 @@ If you're comfortable with terminal multiplexers, you can run all services in on
    - Enter your email and password
    - Click "Register"
 
-3. **Upload Textbook Images**:
-   - Click on the upload area or drag and drop images
-   - Select one or more images of textbook pages
-   - Click "Upload Images"
+3. **Upload Files**:
+   - Click on the upload area or drag and drop files
+   - Select one or more images or PDF files
+   - Supported: Images (JPEG, PNG, etc.) and PDFs (text will be auto-extracted)
+   - Click "Upload"
 
 4. **Generate Questions**:
    - Select the images you want to use (click on them)
@@ -276,15 +255,56 @@ The application uses SQLite with the following tables:
 
 ## Deployment
 
-### Frontend + Backend → Vercel
+### Unified Vercel Deployment (Frontend + Backend Together)
 
-The Node.js backend and React frontend can be deployed to Vercel:
+The application is configured for unified deployment to Vercel (both frontend and backend as a single project):
 
-1. Push your code to GitHub
-2. Import project to Vercel
-3. Set environment variables in Vercel dashboard:
-   - `JWT_SECRET`
-   - `AI_SERVICE_URL` (point to your hosted AI service)
+1. **Push your code to GitHub** (if not already done)
+
+2. **Deploy to Vercel**:
+   ```bash
+   vercel --prod
+   ```
+
+   Or use GitHub integration:
+   - Go to https://vercel.com
+   - Click "Import Project"
+   - Connect your GitHub repository
+   - Vercel will auto-detect the configuration
+
+3. **Set environment variables** in Vercel dashboard or via CLI:
+   ```bash
+   vercel env add GEMINI_API_KEY
+   vercel env add JWT_SECRET
+   ```
+
+   Required environment variables:
+   - `JWT_SECRET` - Your JWT secret key (generate a random string)
+   - `GEMINI_API_KEY` - Your Google Gemini API key (get free at https://ai.google.dev/)
+
+4. **That's it!** Your app will be deployed at `https://your-project.vercel.app`
+   - Frontend: `https://your-project.vercel.app/`
+   - Backend API: `https://your-project.vercel.app/api/`
+
+### Manual Deployment Steps
+
+If you prefer manual deployment:
+
+1. **Login to Vercel**:
+   ```bash
+   vercel login
+   ```
+
+2. **Deploy from project root**:
+   ```bash
+   cd /path/to/question-generator
+   vercel --prod
+   ```
+
+3. **Configure environment variables**:
+   - Go to your project in Vercel dashboard
+   - Settings → Environment Variables
+   - Add `JWT_SECRET` and `GEMINI_API_KEY`
 
 ### AI Service → Options
 
