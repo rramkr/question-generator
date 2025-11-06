@@ -1,6 +1,10 @@
 # Deployment Guide for Vercel
 
-This guide will help you deploy your Question Generator app to Vercel for free.
+This guide will help you deploy your Question Generator app to Vercel as a **single unified project** for free.
+
+## What's Different?
+
+This app now deploys as a **single Vercel project** instead of separate frontend and backend deployments. The frontend and backend are served from the same domain, making deployment simpler and avoiding CORS issues.
 
 ## Prerequisites
 
@@ -25,7 +29,6 @@ The free tier includes:
 
 1. Initialize git repository (if not already done):
    ```bash
-   cd /Users/ramsabode/vibe-coding/edu
    git init
    git add .
    git commit -m "Initial commit - Question Generator with Gemini AI"
@@ -44,16 +47,16 @@ The free tier includes:
    git push -u origin main
    ```
 
-## Step 3: Deploy Backend to Vercel
+## Step 3: Deploy to Vercel (Single Project)
 
 1. Go to https://vercel.com/dashboard
 2. Click "Add New..." → "Project"
 3. Import your GitHub repository
 4. Configure the project:
    - **Framework Preset**: Other
-   - **Root Directory**: `backend`
-   - **Build Command**: Leave empty (not needed for Node.js)
-   - **Output Directory**: Leave empty
+   - **Root Directory**: Leave empty (deploy from root)
+   - **Build Command**: Leave as default (uses package.json script)
+   - **Output Directory**: `frontend/build`
    - **Install Command**: `npm install`
 
 5. Add Environment Variables:
@@ -64,42 +67,12 @@ The free tier includes:
 
 6. Click "Deploy"
 
-7. Once deployed, copy your backend URL (e.g., `https://your-backend.vercel.app`)
+7. Once deployed, you'll get your app URL (e.g., `https://your-app.vercel.app`)
 
-## Step 4: Deploy Frontend to Vercel
+## Step 4: Share Your App!
 
-1. In Vercel dashboard, click "Add New..." → "Project"
-2. Import the same GitHub repository
-3. Configure the project:
-   - **Framework Preset**: Create React App
-   - **Root Directory**: `frontend`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `build`
-   - **Install Command**: `npm install`
-
-4. Add Environment Variables:
-   Click "Environment Variables" and add:
-   - `REACT_APP_API_URL` = Your backend URL from Step 3 (e.g., `https://your-backend.vercel.app`)
-
-5. Click "Deploy"
-
-6. Once deployed, you'll get your frontend URL (e.g., `https://your-app.vercel.app`)
-
-## Step 5: Update Backend CORS Settings (if needed)
-
-If you get CORS errors, you may need to update your backend's CORS configuration to allow your frontend domain.
-
-1. Go to your backend deployment in Vercel
-2. Go to Settings → Environment Variables
-3. Add a new variable:
-   - `FRONTEND_URL` = Your frontend URL (e.g., `https://your-app.vercel.app`)
-
-4. Update your backend code to use this in CORS settings (if not already configured)
-
-## Step 6: Share Your App!
-
-Your app is now live! Share the frontend URL with anyone:
-- Frontend: `https://your-app.vercel.app`
+Your app is now live! Share the URL with anyone:
+- App URL: `https://your-app.vercel.app`
 - They can create an account, upload images/PDFs, and generate questions
 
 ## Important Notes
@@ -132,29 +105,43 @@ The current setup uses SQLite, which works on Vercel but data will be lost betwe
 2. Supabase (free tier available)
 3. PlanetScale (free tier available)
 
+## How It Works
+
+This unified deployment works by:
+1. **Frontend**: React app is built to static files served from `/`
+2. **Backend**: Express API runs as serverless functions under `/api/*`
+3. **Routing**: Vercel automatically routes API requests to serverless functions and everything else to the frontend
+
+Benefits:
+- Single deployment instead of two separate projects
+- No CORS configuration needed
+- Simpler environment variable management
+- One URL for the entire app
+
 ## Troubleshooting
 
-### Backend Won't Start
+### API Routes Not Working
 
 Check the logs in Vercel dashboard:
-1. Go to your backend deployment
+1. Go to your deployment
 2. Click on the latest deployment
-3. Click "Functions" → Check logs
+3. Click "Functions" → Check logs for the `api/index` function
 
 Common issues:
 - Missing environment variables
 - Invalid Gemini API key
+- Check that `api/index.js` is being detected
 
-### Frontend Can't Connect to Backend
+### Build Failures
 
-1. Check that `REACT_APP_API_URL` is set correctly in frontend environment variables
-2. Make sure it points to your backend URL (without trailing slash)
-3. Redeploy frontend after changing environment variables
+1. Check the build logs in Vercel dashboard
+2. Ensure all dependencies are in the root `package.json`
+3. Verify that `frontend/build` directory is being created
 
 ### Gemini API Errors
 
-1. Verify your API key is correct
-2. Check you haven't exceeded the free tier limits
+1. Verify your API key is correct in environment variables
+2. Check you haven't exceeded the free tier limits (1,500 requests/day)
 3. Check the Gemini API status at https://status.cloud.google.com/
 
 ## Updating Your Deployment
@@ -168,7 +155,7 @@ To update your app after making changes:
    git push
    ```
 
-2. Vercel will automatically redeploy both frontend and backend!
+2. Vercel will automatically redeploy your entire app!
 
 ## Cost Monitoring
 

@@ -1,0 +1,12 @@
+node_modules
+.git
+.env
+backend/.env
+frontend/.env
+backend/node_modules
+frontend/node_modules
+backend/uploads/*.jpg
+backend/uploads/*.png
+backend/uploads/*.pdf
+*.sqlite
+*.db
