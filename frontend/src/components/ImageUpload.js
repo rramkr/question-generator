@@ -3,7 +3,8 @@ import axios from 'axios';
 import API_URL from '../config';
 import './ImageUpload.css';
 
-function ImageUpload({ token, onUploadSuccess }) {
+// Authentication bypassed - no token needed
+function ImageUpload({ onUploadSuccess }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -33,7 +34,6 @@ function ImageUpload({ token, onUploadSuccess }) {
     try {
       await axios.post(`${API_URL}/api/images/upload`, formData, {
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
         },
         timeout: 120000 // 2 minutes timeout for OCR processing

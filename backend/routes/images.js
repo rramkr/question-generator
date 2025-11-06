@@ -6,9 +6,13 @@ const sharp = require('sharp');
 const convert = require('heic-convert');
 const tesseract = require('node-tesseract-ocr');
 const { run, get, all } = require('../database');
-const authMiddleware = require('../middleware/auth');
+// Authentication bypassed - using default user
+// const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
+
+// Default user ID for all operations (auth bypassed)
+const DEFAULT_USER_ID = 1;
 
 // Configure multer for file upload (use memory storage)
 const storage = multer.memoryStorage();
@@ -317,7 +321,7 @@ async function processImageBuffer(buffer, originalExt, originalName) {
 }
 
 // Upload images
-router.post('/upload', authMiddleware, upload.array('images', 20), async (req, res) => {
+router.post('/upload', upload.array('images', 20), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
@@ -346,7 +350,7 @@ router.post('/upload', authMiddleware, upload.array('images', 20), async (req, r
       // Save to database with data URL
       const result = await run(
         'INSERT INTO images (user_id, filename, original_name, path) VALUES (?, ?, ?, ?)',
-        [req.userId, processedImage.filename, file.originalname, dataUrl]
+        [DEFAULT_USER_ID, processedImage.filename, file.originalname, dataUrl]
       );
 
       uploadedImages.push({
@@ -367,11 +371,11 @@ router.post('/upload', authMiddleware, upload.array('images', 20), async (req, r
 });
 
 // Get user's images
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const images = await all(
       'SELECT id, filename, original_name, uploaded_at FROM images WHERE user_id = ? ORDER BY uploaded_at DESC',
-      [req.userId]
+      [DEFAULT_USER_ID]
     );
     res.json({ images });
   } catch (error) {
@@ -381,11 +385,11 @@ router.get('/', authMiddleware, async (req, res) => {
 });
 
 // Delete image
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const image = await get(
       'SELECT * FROM images WHERE id = ? AND user_id = ?',
-      [req.params.id, req.userId]
+      [req.params.id, DEFAULT_USER_ID]
     );
 
     if (!image) {

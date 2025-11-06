@@ -6,7 +6,8 @@ import QuestionGenerator from './QuestionGenerator';
 import QuestionDisplay from './QuestionDisplay';
 import './Dashboard.css';
 
-function Dashboard({ token, onLogout }) {
+// Authentication bypassed - no token needed
+function Dashboard() {
   const [images, setImages] = useState([]);
   const [generatedQuestions, setGeneratedQuestions] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -18,9 +19,7 @@ function Dashboard({ token, onLogout }) {
 
   const fetchImages = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/images`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(`${API_URL}/api/images`);
       setImages(response.data.images);
     } catch (error) {
       console.error('Failed to fetch images:', error);
@@ -33,9 +32,7 @@ function Dashboard({ token, onLogout }) {
 
   const handleDeleteImage = async (imageId) => {
     try {
-      await axios.delete(`${API_URL}/api/images/${imageId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.delete(`${API_URL}/api/images/${imageId}`);
       setImages(images.filter(img => img.id !== imageId));
     } catch (error) {
       console.error('Failed to delete image:', error);
@@ -62,9 +59,6 @@ function Dashboard({ token, onLogout }) {
           imageIds: allImageIds,
           questionTypes,
           counts
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
         }
       );
 
@@ -81,13 +75,12 @@ function Dashboard({ token, onLogout }) {
     <div className="dashboard">
       <header className="dashboard-header">
         <h1>Question Generator</h1>
-        <button onClick={onLogout} className="btn-logout">Logout</button>
       </header>
 
       <div className="dashboard-content">
         <section className="section">
           <h2>Upload Textbook Images</h2>
-          <ImageUpload token={token} onUploadSuccess={handleImageUpload} />
+          <ImageUpload onUploadSuccess={handleImageUpload} />
         </section>
 
         <section className="section">

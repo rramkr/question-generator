@@ -112,6 +112,20 @@ const initDatabase = async () => {
     `);
 
     console.log('Database initialized successfully');
+
+    // Create default user for auth-bypassed operations
+    try {
+      const existingUser = await dbGet('SELECT id FROM users WHERE id = 1');
+      if (!existingUser) {
+        await dbRun(
+          'INSERT INTO users (id, email, password) VALUES (?, ?, ?)',
+          [1, 'default@app.com', 'no-password-auth-bypassed']
+        );
+        console.log('Default user created (auth bypassed)');
+      }
+    } catch (error) {
+      console.log('Default user already exists or creation skipped');
+    }
   } catch (error) {
     console.error('Database initialization error:', error);
   }

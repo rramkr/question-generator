@@ -2,13 +2,17 @@ const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
 const { run, get, all } = require('../database');
-const authMiddleware = require('../middleware/auth');
+// Authentication bypassed - using default user
+// const authMiddleware = require('../middleware/auth');
 const { generateQuestionsFromImages } = require('../services/gemini');
 
 const router = express.Router();
 
+// Default user ID for all operations (auth bypassed)
+const DEFAULT_USER_ID = 1;
+
 // Generate questions from images
-router.post('/generate', authMiddleware, async (req, res) => {
+router.post('/generate', async (req, res) => {
   try {
     const { imageIds, questionTypes, counts } = req.body;
 
@@ -32,7 +36,7 @@ router.post('/generate', authMiddleware, async (req, res) => {
     }
 
     // Create question session
-    const sessionResult = await run('INSERT INTO question_sessions (user_id) VALUES (?)', [req.userId]);
+    const sessionResult = await run('INSERT INTO question_sessions (user_id) VALUES (?)', [DEFAULT_USER_ID]);
     const sessionId = sessionResult.lastID;
 
     // Link images to session
@@ -219,14 +223,14 @@ router.post('/generate', authMiddleware, async (req, res) => {
 });
 
 // Get questions from a session
-router.get('/session/:sessionId', authMiddleware, async (req, res) => {
+router.get('/session/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
 
-    // Verify session belongs to user
+    // Get session (auth bypassed - no user verification)
     const session = await get(
-      'SELECT * FROM question_sessions WHERE id = ? AND user_id = ?',
-      [sessionId, req.userId]
+      'SELECT * FROM question_sessions WHERE id = ?',
+      [sessionId]
     );
 
     if (!session) {
@@ -269,7 +273,7 @@ router.get('/session/:sessionId', authMiddleware, async (req, res) => {
 });
 
 // Get all sessions for user
-router.get('/sessions', authMiddleware, async (req, res) => {
+router.get('/sessions', async (req, res) => {
   try {
     const sessions = await all(`
       SELECT
@@ -281,7 +285,7 @@ router.get('/sessions', authMiddleware, async (req, res) => {
       WHERE qs.user_id = ?
       GROUP BY qs.id
       ORDER BY qs.created_at DESC
-    `, [req.userId]);
+    `, [DEFAULT_USER_ID]);
 
     res.json({ sessions });
   } catch (error) {
