@@ -54,7 +54,23 @@ router.post('/generate', authMiddleware, async (req, res) => {
 
         // Check if this is a data URL, external URL, or local file
         if (img.path.startsWith('data:')) {
-          // Extract base64 data from data URL
+          // Check if this is a PDF text JSON file
+          if (img.path.startsWith('data:application/json')) {
+            console.log(`Detected PDF text data for ${img.filename}`);
+            const base64Match = img.path.match(/^data:application\/json;base64,(.+)$/);
+            if (base64Match) {
+              const jsonBuffer = Buffer.from(base64Match[1], 'base64');
+              const jsonData = JSON.parse(jsonBuffer.toString('utf-8'));
+
+              if (jsonData.text) {
+                ocrText += `\n\n--- Content from ${jsonData.originalName || img.filename} (${jsonData.pages} of ${jsonData.totalPages} pages) ---\n\n${jsonData.text}`;
+                console.log(`Extracted ${jsonData.text.length} characters from PDF ${img.filename}`);
+                continue; // Skip image processing for this file
+              }
+            }
+          }
+
+          // Extract base64 data from image data URL
           console.log(`Extracting base64 from data URL for ${img.filename}`);
           const base64Match = img.path.match(/^data:image\/\w+;base64,(.+)$/);
           if (base64Match) {
