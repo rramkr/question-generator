@@ -1,6 +1,8 @@
 # Educational Question Generator
 
-An AI-powered application that generates various types of educational questions from textbook images using Claude AI.
+An AI-powered application that generates various types of educational questions from textbook images and PDFs using Google Gemini AI.
+
+> **Note**: This project is configured for **single-project deployment on Vercel**. The frontend and backend are deployed together as one unified application. See [DEPLOYMENT.md](DEPLOYMENT.md) for deployment instructions.
 
 ## Features
 
